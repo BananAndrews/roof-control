@@ -1,51 +1,63 @@
-# Overview
-This document outlines the requirements for a web-based interface to control a Tuya-compatible Automatic Slide Gate Opener (model NI600Z) from a PC. The goal is to provide a simple, local web application that replicates the core functionality of mobile apps like Tuya Smart, enabling users to open, close, and stop the gate directly from their computer's web browser.
+# Product Requirements Document: APT Roll-Off Roof Plugin
 
-# Core Features
-The initial version (MVP) of the application will focus on the following essential features:
-- **Open Gate:** A button that sends a command to fully open the gate.
-- **Close Gate:** A button that sends a command to fully close the gate.
-- **Stop Gate:** A button that sends a command to immediately halt the gate's movement.
-- **Display Status:** A simple text indicator to show the current status of the gate (e.g., "Open", "Closed", "Opening", "Closing", "Stopped").
+# Overview
+This document outlines the requirements for a plugin for the Astro Photography Tool (APT). The plugin will integrate with the existing `roof-control` Node.js application to provide automated control of a custom roll-off observatory roof. The primary goal is to automate the opening and closing of the roof in sync with APT's imaging plans, providing a seamless, unattended operation experience for both amateur astronomers and remote observatory operators.
+
+# Core Features (MVP)
+- **Automatic Roof Opening:** The plugin will automatically trigger the `roof-control` server to open the roof when an imaging plan is started in APT.
+- **Automatic Roof Closing:** The plugin will automatically trigger the `roof-control` server to close the roof when an imaging plan is completed, paused, or manually stopped by the user.
+- **Status Monitoring and Display:** The plugin will periodically poll the `roof-control` server for the roof's current state. This status (e.g., "Open", "Closed", "Opening", "Closing", "Stopped", "Error") will be displayed as a simple text label within the APT interface.
+- **Robust Error Handling:** To ensure equipment safety, if any roof command fails or the connection to the `roof-control` server is lost, the plugin will immediately:
+    1.  Log a detailed error message to the APT log.
+    2.  Display a pop-up alert message to the user.
+    3.  Automatically abort the currently running imaging plan.
 
 # User Experience
-- **User Persona:** The primary user is the owner of the gate opener who wants a convenient way to control it from their PC without using a mobile device.
-- **User Flow:** The user navigates to a local URL in their web browser. The interface will present clear buttons for "Open," "Close," and "Stop." The user clicks the desired action button, and the gate responds accordingly. The status text updates to reflect the gate's current state.
-- **UI/UX Considerations:** The interface will be minimalist and functional, prioritizing ease of use over complex design. It will consist of three main control buttons and a status display.
+- **User Personas:**
+    - An amateur astronomer with a personal, DIY roll-off roof setup who wants to automate observatory operations.
+    - A remote observatory operator who needs reliable, safe, and unattended control over the roof.
+- **Key User Flow:**
+    1.  The user installs the plugin script and configures it with the network address of the `roof-control` server.
+    2.  The user enables the plugin within APT.
+    3.  The user starts a pre-configured imaging plan in APT. The plugin detects the "plan start" event and commands the roof to open.
+    4.  Throughout the session, the plugin displays the current roof status in a small window inside APT.
+    5.  When the imaging plan concludes (or is stopped), the plugin commands the roof to close.
+    6.  If an error occurs at any point, the user is immediately notified via a pop-up, and the imaging process is halted to prevent damage.
+- **UI/UX Considerations:** The user interface within APT will be minimal. It will consist of a small, non-intrusive window or panel displaying a single line of text: "Roof Status: [Current Status]".
 
 # Technical Architecture
 - **System Components:**
-    1.  A lightweight backend server (e.g., using Node.js with Express or Python with Flask) to handle API calls to the Tuya cloud.
-    2.  A simple HTML/CSS/JavaScript frontend to provide the user interface.
-- **APIs and Integrations:** The application will integrate with the **Tuya IoT Platform API**. This requires the user to:
-    1.  Create a Tuya developer account.
-    2.  Set up a "Cloud Project" within the Tuya IoT Platform.
-    3.  Link their gate opener device to the project.
-    4.  Obtain API credentials (Access ID, Access Key, etc.) to be used in the application's configuration.
-- **Infrastructure Requirements:** The application will be designed to run locally on the user's PC. No external hosting is required.
+    1.  **`roof-control` Server:** The pre-existing Node.js application that provides a REST API to control the Tuya-based roof motor.
+    2.  **APT Plugin (External Script):** An external script (e.g., VBScript, JScript, or a lightweight executable) that acts as the bridge between APT and the `roof-control` server.
+    3.  **Astro Photography Tool (APT):** The host application that will trigger the plugin script.
+- **APIs and Integrations:**
+    - **APT Integration:** The plugin script will be configured within APT to execute based on application events (e.g., "On Plan Start", "On Plan End"). This will likely be configured in APT's `Tools` -> `External Scripts` section.
+    - **`roof-control` API:** The script will communicate with the `roof-control` server by making HTTP requests (e.g., using `curl` or a similar command-line utility) to its REST API endpoints:
+        - `POST /api/control/open`
+        - `POST /api/control/close`
+        - `POST /api/control/stop`
+        - `GET /api/status`
+    - **Configuration:** The plugin will use a simple configuration file (e.g., `config.ini`) to allow the user to specify the URL of the `roof-control` server (e.g., `http://192.168.1.100:3000`).
 
 # Development Roadmap
 - **MVP Requirements:**
-    1.  Establish a secure connection to the Tuya IoT Platform API using the provided credentials.
-    2.  Implement backend functions to send `open`, `close`, and `stop` commands to the device.
-    3.  Implement a backend function to poll for and retrieve the device's current status.
-    4.  Create a minimalist web interface with three buttons (Open, Close, Stop) and a text area for status.
-    5.  Link the frontend buttons to the backend functions.
-    6.  Display the retrieved status on the web page.
-
-- **Future Enhancements (Out of Scope for MVP):**
-    -   Visual representation of the gate's status.
-    -   User authentication or multi-user support.
-    -   Scheduling or timer-based actions.
-    -   Direct local network control (if feasible) to reduce cloud dependency.
+    1.  Develop the core script logic to make HTTP calls to the `roof-control` API for open, close, and status commands.
+    2.  Implement a status polling loop within the script to periodically fetch and display the roof status.
+    3.  Implement the robust error handling sequence (log, alert, abort).
+    4.  Research and define the exact mechanism in APT to trigger the script on imaging plan events.
+    5.  Package the script, configuration file, and detailed setup instructions for the user.
+- **Future Enhancements:**
+    -   Implement a "Park Telescope" command trigger in APT before sending the roof "close" command. This is a critical safety feature to prevent collisions.
 
 # Logical Dependency Chain
-1.  **Tuya API Credentials:** The absolute first step is for the user to set up their Tuya developer account and obtain the necessary API keys. The application cannot function without these.
-2.  **Backend API Logic:** Develop the core logic to authenticate with and send commands to the Tuya API. This is the foundational layer.
-3.  **Frontend Interface:** Once the backend can control the device, build the simple web UI to trigger the backend functions.
+1.  The `roof-control` server must be stable, running, and accessible on the same network as the APT computer.
+2.  The core functions of the plugin script (API communication, status polling) should be developed and tested independently from APT to ensure they work correctly.
+3.  The final step is to integrate the tested script into APT's event-triggering system.
 
 # Risks and Mitigations
-- **Risk:** The Tuya API may be complex or have unclear documentation.
-  - **Mitigation:** Allocate time for thoroughly reading the official Tuya IoT Platform documentation. Start with simple API calls (like getting device status) to ensure the connection is working before implementing control commands.
-- **Risk:** Device-specific commands may differ from the general Tuya standard.
-  - **Mitigation:** Use the "API Explorer" and "Device Log" features in the Tuya IoT Platform to debug and identify the exact commands and status values being sent and received by the specific gate opener model.
+- **Risk:** The mechanism for triggering scripts based on APT events may be undocumented or unreliable.
+  - **Mitigation:** Allocate specific time to research and test on the official APT forums. If direct event triggers are not feasible, the fallback plan is to create manual "Open Roof" and "Close Roof" script buttons in the APT Tools menu, sacrificing full automation for the MVP.
+- **Risk:** Network instability between the APT computer and the `roof-control` server could cause commands to fail.
+  - **Mitigation:** The defined error-handling protocol (alert and abort) is the primary mitigation. The script will use short timeouts for network requests to fail quickly and safely.
+- **Risk:** The roof's physical state becomes out of sync with its reported state.
+  - **Mitigation:** The status polling mechanism will regularly check the state. If the script detects that the roof is not in the expected state (e.g., it's closed when it should be open), it will trigger the error-handling protocol.
